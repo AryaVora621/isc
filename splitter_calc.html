@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Industrialist Splitter Calculator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#0f1117;color:#e2e8f0;padding:1.5rem;min-height:100vh}
+h1{font-size:16px;font-weight:500;color:#94a3b8;letter-spacing:.05em;text-transform:uppercase;margin-bottom:1.5rem}
+.controls{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;row-gap:8px}
+.stepper{display:flex;align-items:center;border:1px solid #334155;border-radius:8px;overflow:hidden;height:34px}
+.stepper button{background:none;border:none;border-right:1px solid #334155;width:34px;font-size:20px;color:#94a3b8;cursor:pointer;height:34px}
+.stepper button:last-child{border-right:none;border-left:1px solid #334155}
+.stepper button:hover{background:#1e293b}
+.stepper button:disabled{opacity:.3;cursor:default}
+#nd{width:46px;text-align:center;font-weight:600;font-size:15px;color:#f1f5f9;background:none;border:none;outline:none;-moz-appearance:textfield;}
+#nd::-webkit-outer-spin-button, #nd::-webkit-inner-spin-button {-webkit-appearance: none; margin: 0;}
+.eq-btn{height:34px;padding:0 14px;background:none;border:1px solid #334155;border-radius:8px;color:#94a3b8;cursor:pointer;font-size:13px}
+.eq-btn:hover{background:#1e293b;color:#e2e8f0}
+#tot{margin-left:auto;font-family:monospace;font-size:12px;color:#64748b}
+.col-hdr{display:grid;grid-template-columns:80px minmax(0,1fr) 18px 110px;gap:10px;padding:0 14px 5px;font-size:11px;color:#475569}
+.brow{display:grid;grid-template-columns:80px minmax(0,1fr) 18px 110px;align-items:center;gap:10px;padding:9px 14px;background:#1a1f2e;border-radius:8px;border:1px solid #1e293b}
+.brow + .brow{margin-top:6px}
+.blabel{font-family:monospace;font-size:13px;color:#64748b}
+.brow input[type=number]{width:100%;background:#0f1117;border:1px solid #334155;border-radius:6px;padding:5px 8px;font-family:monospace;text-align:right;color:#e2e8f0;font-size:14px}
+.brow input[type=number]:focus{outline:none;border-color:#6366f1}
+.brow input::-webkit-inner-spin-button{opacity:.5}
+.arrow-txt{text-align:center;color:#475569;font-size:14px}
+.set-val{font-family:monospace;font-size:16px;font-weight:600;text-align:right;color:#a5b4fc}
+.set-hint{font-size:11px;color:#475569;text-align:right}
+.stor-row{display:grid;grid-template-columns:80px 1fr auto;align-items:center;gap:10px;padding:9px 14px;background:#1a1f2e;border-radius:8px;border:1px solid #1e293b;margin-top:8px;margin-bottom:1rem}
+.stor-label{font-family:monospace;font-size:13px;color:#64748b}
+.stor-desc{font-size:12px;color:#475569}
+.stor-val{font-family:monospace;font-size:15px;font-weight:600;color:#34d399;text-align:right}
+.stor-unit{font-size:11px;color:#475569;margin-left:2px}
+.err{display:none;padding:8px 14px;border-radius:8px;background:#2d1b1b;color:#f87171;font-size:13px;margin-bottom:1rem;border:1px solid #7f1d1d}
+#pipe{overflow-x:auto;padding:4px 0;margin-top:.5rem}
+</style>
+</head>
+<body>
+<h1>Industrialist - Splitter Chain Calculator</h1>
+
+<div class="controls">
+  <span style="font-size:13px;color:#64748b">Output branches</span>
+  <div class="stepper">
+    <button id="bdec" onclick="adj(-1)">−</button>
+    <input type="number" id="nd" value="3" min="1" onchange="updateN(this.value)">
+    <button id="binc" onclick="adj(1)">+</button>
+  </div>
+  <button class="eq-btn" onclick="eqSplit()">Equal split ↺</button>
+  <span id="tot"></span>
+</div>
+
+<div class="col-hdr">
+  <span>Branch</span><span style="text-align:right">% of total input</span><span></span><span style="text-align:right">Set splitter to</span>
+</div>
+
+<div id="rows"></div>
+
+<div class="stor-row">
+  <span class="stor-label" id="final-branch-label">Branch 3</span>
+  <span class="stor-desc">receives remainder</span>
+  <div style="text-align:right;min-width:80px">
+    <span id="sv" class="stor-val">—</span>
+    <span class="stor-unit">% of total</span>
+  </div>
+</div>
+
+<div id="err" class="err"></div>
+<div id="pipe"></div>
+
+<script>
+let n=3, d=[33.33,33.33];
+
+function updateN(newN){
+  let nn=Math.max(1,parseInt(newN)||1);
+  if(nn===n) {
+    document.getElementById('nd').value=n;
+    return;
+  }
+  while(d.length<nn-1) d.push(0);
+  d.length=Math.max(0,nn-1);
+  n=nn;
+  document.getElementById('nd').value=n;
+  document.getElementById('bdec').disabled=(n<=1);
+  document.getElementById('binc').disabled=false;
+  build(); calc();
+}
+
+function adj(delta){
+  updateN(n+delta);
+}
+
+function eqSplit(){
+  const e=+(100/n).toFixed(2);
+  d=Array.from({length:Math.max(0,n-1)},(_,i)=>e);
+  build(); calc();
+}
+
+function build(){
+  const ct=document.getElementById('rows'); ct.innerHTML='';
+  for(let i=0;i<n-1;i++){
+    const r=document.createElement('div'); r.className='brow';
+    r.innerHTML=`
+      <span class="blabel">Branch ${i+1}</span>
+      <input type="number" id="i${i}" value="${d[i]}" min="0" max="100" step="0.01"
+        oninput="d[${i}]=Math.max(0,+this.value||0);calc()"/>
+      <span class="arrow-txt">→</span>
+      <div>
+        <div id="s${i}" class="set-val">—</div>
+        <div class="set-hint">set splitter to</div>
+      </div>`;
+    ct.appendChild(r);
+  }
+  const flabel=document.getElementById('final-branch-label');
+  if(flabel) flabel.textContent='Branch '+n;
+}
+
+function calc(){
+  let rem=100,tot=0,ok=true;
+  const sets=[];
+  for(let i=0;i<n-1;i++){
+    tot+=d[i];
+    if(d[i]<-0.001||tot>100.001){ok=false;break;}
+    sets.push(rem>0.001?d[i]/rem*100:0);
+    rem=Math.max(0,rem-d[i]);
+  }
+  const stp=Math.max(0,+(100-tot).toFixed(4));
+  const err=document.getElementById('err');
+  const totEl=document.getElementById('tot');
+  totEl.textContent='total: '+(ok?'100.00':tot.toFixed(2))+'%';
+  if(!ok){
+    err.style.display='block'; err.textContent='Total exceeds 100%. Reduce some branch values.';
+    totEl.style.color='#f87171';
+    for(let i=0;i<n-1;i++) document.getElementById('s'+i).textContent='—';
+    document.getElementById('sv').textContent='—';
+  } else {
+    err.style.display='none'; totEl.style.color='';
+    for(let i=0;i<n-1;i++){
+      const el=document.getElementById('s'+i);
+      el.textContent=sets[i].toFixed(2)+'%';
+      el.style.color=sets[i]>99.5?'#94a3b8':'#a5b4fc';
+    }
+    document.getElementById('sv').textContent=stp.toFixed(2);
+    drawPipe(sets,[...d],stp);
+  }
+}
+
+function drawPipe(sets,des,stp){
+  const NW=88,NH=54,AW=44;
+  const mainCY=90,boxTop=mainCY-NH/2,boxBot=mainCY+NH/2;
+  const brLY=13,brTip=22,brBase=30,flowY=boxBot+18,svgH=flowY+14;
+  const cx=c=>10+NW/2+c*(NW+AW);
+  const svgW=cx(n)+NW/2+14;
+
+  let sv=`<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" style="display:block;width:${svgW}px">`;
+
+  for(let col=0;col<n;col++){
+    const x1=cx(col+1)-NW/2,x2=cx(col)+NW/2,y=mainCY;
+    sv+=`<line x1="${x1}" y1="${y}" x2="${x2+7}" y2="${y}" stroke="#475569" stroke-width="1.5"/>`;
+    sv+=`<polygon points="${x2},${y} ${x2+8},${y-4} ${x2+8},${y+4}" fill="#475569"/>`;
+    let sumE=0; for(let k=n-2;k>=n-1-col;k--) if(k>=0&&k<des.length) sumE+=des[k];
+    const fl=stp+sumE;
+    sv+=`<text x="${(x1+x2)/2}" y="${flowY}" text-anchor="middle" font-size="10" font-family="monospace" fill="#334155">${fl.toFixed(1)}%</text>`;
+  }
+
+  for(let col=1;col<n;col++){
+    const x=cx(col),si=n-1-col;
+    sv+=`<line x1="${x}" y1="${boxTop}" x2="${x}" y2="${brBase}" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+    sv+=`<polygon points="${x},${brTip} ${x-4},${brBase} ${x+4},${brBase}" fill="#7c3aed"/>`;
+    sv+=`<text x="${x}" y="${brLY}" text-anchor="middle" font-size="10" font-family="monospace" fill="#a78bfa" font-weight="600">${des[si].toFixed(1)}%</text>`;
+  }
+
+  sv+=`<rect x="${cx(0)-NW/2}" y="${boxTop}" width="${NW}" height="${NH}" rx="6" fill="#0d2b21" stroke="#1a4030" stroke-width="1"/>`;
+  sv+=`<text x="${cx(0)}" y="${mainCY-7}" text-anchor="middle" font-size="10" font-family="sans-serif" fill="#4ade80" font-weight="500">BRANCH ${n}</text>`;
+  sv+=`<text x="${cx(0)}" y="${mainCY+12}" text-anchor="middle" font-size="13" font-family="monospace" fill="#34d399" font-weight="600">${stp.toFixed(1)}%</text>`;
+
+  sv+=`<rect x="${cx(n)-NW/2}" y="${boxTop}" width="${NW}" height="${NH}" rx="6" fill="#2a1a00" stroke="#3d2600" stroke-width="1"/>`;
+  sv+=`<text x="${cx(n)}" y="${mainCY-7}" text-anchor="middle" font-size="10" font-family="sans-serif" fill="#fbbf24" font-weight="500">ITEM</text>`;
+  sv+=`<text x="${cx(n)}" y="${mainCY+12}" text-anchor="middle" font-size="13" font-family="monospace" fill="#f59e0b" font-weight="600">100%</text>`;
+
+  for(let col=1;col<n;col++){
+    const bx=cx(col)-NW/2,si=n-1-col;
+    sv+=`<rect x="${bx}" y="${boxTop}" width="${NW}" height="${NH}" rx="6" fill="#0c1a2e" stroke="#1e3a5f" stroke-width="1"/>`;
+    sv+=`<text x="${cx(col)}" y="${mainCY-7}" text-anchor="middle" font-size="10" font-family="sans-serif" fill="#60a5fa">Branch ${si+1}</text>`;
+    sv+=`<text x="${cx(col)}" y="${mainCY+12}" text-anchor="middle" font-size="13" font-family="monospace" fill="#93c5fd" font-weight="600">${sets[si].toFixed(2)}%</text>`;
+  }
+
+  sv+=`</svg>`;
+  document.getElementById('pipe').innerHTML=sv;
+}
+
+build(); calc();
+</script>
+</body>
+</html>
